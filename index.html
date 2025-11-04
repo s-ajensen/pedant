@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Conversation Renderer</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f7f7f8;
+            color: #2c2d30;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .upload-section {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .upload-section h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #2c2d30;
+        }
+
+        .upload-section p {
+            color: #6b6f76;
+            margin-bottom: 20px;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        input[type="file"] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #c96f4d;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .file-input-label:hover {
+            background: #b55e3d;
+        }
+
+        #conversation {
+            display: none;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .message-role {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .role-user {
+            background: #e8f0fe;
+            color: #1967d2;
+        }
+
+        .role-assistant {
+            background: #f3e8ff;
+            color: #7c3aed;
+        }
+
+        .message-content {
+            color: #2c2d30;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .message-content > div {
+            margin: 0;
+        }
+
+        .message-content > div:not(:last-child) {
+            margin-bottom: 12px;
+        }
+
+        .thinking-block {
+            background: #fef9f3;
+            border: 1px solid #f4d4a8;
+            border-radius: 8px;
+            margin: 12px 0 !important;
+            overflow: hidden;
+        }
+
+        .thinking-block:first-child {
+            margin-top: 0 !important;
+        }
+
+        .thinking-block:last-child {
+            margin-bottom: 0 !important;
+        }
+
+        .thinking-header {
+            padding: 12px 16px;
+            background: #fef3e6;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+            font-weight: 500;
+            color: #8b6914;
+        }
+
+        .thinking-header:hover {
+            background: #fcefd9;
+        }
+
+        .thinking-icon {
+            transition: transform 0.2s;
+        }
+
+        .thinking-icon.expanded {
+            transform: rotate(90deg);
+        }
+
+        .thinking-content {
+            padding: 16px;
+            color: #5c4a1f;
+            border-top: 1px solid #f4d4a8;
+            display: none;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .thinking-content.visible {
+            display: block;
+        }
+
+        .code-block {
+            background: #f6f8fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 12px 0;
+            overflow-x: auto;
+            font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .tool-use {
+            background: #f0f7ff;
+            border: 1px solid #b8daff;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: 12px 0;
+            font-size: 14px;
+        }
+
+        .tool-name {
+            font-weight: 600;
+            color: #004085;
+            margin-bottom: 8px;
+        }
+
+        .tool-input {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+
+        .citation {
+            color: #1967d2;
+            text-decoration: underline;
+            cursor: help;
+        }
+
+        .error-message {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b6f76;
+        }
+
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        code {
+            background: #f6f8fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: "SF Mono", Monaco, monospace;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="upload-section">
+        <h1>Claude Conversation Renderer</h1>
+        <p>Upload a JSON file containing an array of Claude message objects</p>
+        <div class="file-input-wrapper">
+            <input type="file" id="fileInput" accept=".json,application/json">
+            <label for="fileInput" class="file-input-label">Choose JSON File</label>
+        </div>
+    </div>
+
+    <div id="conversation"></div>
+</div>
+
+<script>
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            try {
+                const data = JSON.parse(event.target.result);
+                renderConversation(data);
+            } catch (error) {
+                showError('Error parsing JSON: ' + error.message);
+            }
+        };
+        reader.readAsText(file);
+    });
+
+    function showError(message) {
+        const container = document.getElementById('conversation');
+        container.style.display = 'block';
+        container.innerHTML = `<div class="error-message">${message}</div>`;
+    }
+
+    function renderConversation(messages) {
+        const container = document.getElementById('conversation');
+        container.style.display = 'block';
+        container.innerHTML = '';
+
+        if (!Array.isArray(messages) || messages.length === 0) {
+            container.innerHTML = '<div class="empty-state">No messages found in the JSON file</div>';
+            return;
+        }
+
+        messages.forEach((message, index) => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+
+            const role = message.role || 'unknown';
+            const roleClass = role === 'user' ? 'role-user' : 'role-assistant';
+
+            let headerHTML = `
+                    <div class="message-header">
+                        <span class="message-role ${roleClass}">${capitalizeFirst(role)}</span>
+                    </div>
+                `;
+
+            messageDiv.innerHTML = headerHTML;
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+
+            if (Array.isArray(message.content)) {
+                message.content.forEach(block => {
+                    processContentBlock(block, contentDiv);
+                });
+            } else if (typeof message.content === 'string') {
+                contentDiv.innerHTML = formatText(message.content);
+            } else {
+                processContentBlock(message.content, contentDiv);
+            }
+
+            messageDiv.appendChild(contentDiv);
+            container.appendChild(messageDiv);
+        });
+    }
+
+    function processContentBlock(block, container) {
+        if (!block) return;
+
+        const type = block.type || 'text';
+
+        switch(type) {
+            case 'text':
+                const text = (block.text || '').trim();
+                if (text) {
+                    const textDiv = document.createElement('div');
+                    textDiv.innerHTML = formatText(text);
+                    container.appendChild(textDiv);
+                }
+                break;
+
+            case 'thinking':
+                container.appendChild(createThinkingBlock(block.thinking || ''));
+                break;
+
+            case 'tool_use':
+                container.appendChild(createToolUseBlock(block));
+                break;
+
+            case 'tool_result':
+                container.appendChild(createToolResultBlock(block));
+                break;
+
+            default:
+                const defaultDiv = document.createElement('div');
+                defaultDiv.textContent = JSON.stringify(block, null, 2);
+                container.appendChild(defaultDiv);
+        }
+    }
+
+    function createThinkingBlock(content) {
+        const thinkingDiv = document.createElement('div');
+        thinkingDiv.className = 'thinking-block';
+
+        const id = 'thinking-' + Math.random().toString(36).substr(2, 9);
+
+        thinkingDiv.innerHTML = `<div class="thinking-header" onclick="toggleThinking('${id}')">
+                    <span>💭 Thinking</span>
+                    <span class="thinking-icon" id="${id}-icon">▶</span>
+                </div><div class="thinking-content" id="${id}">${formatText(content)}</div>`;
+
+        return thinkingDiv;
+    }
+
+    function createToolUseBlock(block) {
+        const toolDiv = document.createElement('div');
+        toolDiv.className = 'tool-use';
+
+        const name = block.name || 'unknown';
+        const input = block.input || {};
+
+        toolDiv.innerHTML = `
+                <div class="tool-name">🔧 Tool: ${name}</div>
+                <div class="tool-input">${JSON.stringify(input, null, 2)}</div>
+            `;
+
+        return toolDiv;
+    }
+
+    function createToolResultBlock(block) {
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'tool-use';
+        resultDiv.style.background = '#f0fff4';
+        resultDiv.style.borderColor = '#9ae6b4';
+
+        const content = block.content || '';
+        const displayContent = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+
+        resultDiv.innerHTML = `
+                <div class="tool-name">✓ Tool Result</div>
+                <div class="tool-input">${escapeHtml(displayContent)}</div>
+            `;
+
+        return resultDiv;
+    }
+
+    function formatText(text) {
+        if (!text) return '';
+
+        // Handle code blocks
+        text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, function(match, lang, code) {
+            return `<div class="code-block"><pre><code>${escapeHtml(code.trim())}</code></pre></div>`;
+        });
+
+        // Handle inline code
+        text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+        // Handle citations (simplified)
+        text = text.replace(/(.*?)<\/antml:cite>/g,
+            '<span class="citation" title="Citation: $1">$2</span>');
+
+        // Convert line breaks
+        text = escapeHtml(text).replace(/\n/g, '<br>');
+
+        // Re-apply HTML from code blocks and inline code (we need to be careful here)
+        return text;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function toggleThinking(id) {
+        const content = document.getElementById(id);
+        const icon = document.getElementById(id + '-icon');
+
+        if (content.classList.contains('visible')) {
+            content.classList.remove('visible');
+            icon.classList.remove('expanded');
+        } else {
+            content.classList.add('visible');
+            icon.classList.add('expanded');
+        }
+    }
+
+    function capitalizeFirst(str) {
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+</script>
+</body>
+</html>
